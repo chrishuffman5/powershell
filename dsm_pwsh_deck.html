@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSM-PWSH: Terminal Avoidance Disorders</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=JetBrains+Mono:wght@300;400;500;700&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f1ead8;
+    --paper-dark: #e6dcc0;
+    --ink: #1a1a1a;
+    --ink-soft: #2a2a2a;
+    --ink-faded: #4a443a;
+    --rust: #8b2e1f;
+    --rust-deep: #5c1d12;
+    --phosphor: #4ade80;
+    --phosphor-dim: #166534;
+    --terminal-bg: #0a0e0a;
+    --stamp-red: #a8331f;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #2a2520;
+    font-family: 'Cormorant Garamond', serif;
+    color: var(--ink);
+  }
+
+  /* ===== DECK SHELL ===== */
+  .deck {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .slide {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4vh 6vw;
+  }
+
+  .slide.active {
+    opacity: 1;
+    pointer-events: auto;
+    z-index: 2;
+  }
+
+  /* ===== PAPER TEXTURE (shared) ===== */
+  .paper {
+    background: var(--paper);
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(139, 46, 31, 0.04) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(74, 68, 58, 0.06) 0%, transparent 50%),
+      repeating-linear-gradient(
+        91deg,
+        transparent 0px,
+        transparent 2px,
+        rgba(74, 68, 58, 0.015) 2px,
+        rgba(74, 68, 58, 0.015) 3px
+      );
+  }
+
+  .paper::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(ellipse at top left, transparent 60%, rgba(74, 68, 58, 0.15) 100%),
+      radial-gradient(ellipse at bottom right, transparent 60%, rgba(74, 68, 58, 0.12) 100%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .paper::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.08 0 0 0 0 0.05 0 0 0 0.4 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.18;
+    mix-blend-mode: multiply;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* ===== SHARED ELEMENTS ===== */
+  .slide-content {
+    position: relative;
+    z-index: 3;
+    width: 100%;
+    max-width: 1100px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .header-strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--ink-faded);
+    margin-bottom: 2.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-faded);
+  }
+
+  .header-strip .left { display: flex; gap: 2rem; }
+  .header-strip .center { font-style: italic; font-family: 'Cormorant Garamond', serif; letter-spacing: 0.1em; }
+
+  .footer-strip {
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 1px solid var(--ink-faded);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-faded);
+  }
+
+  /* ===== TITLE SLIDE ===== */
+  .title-slide .slide-content {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .title-stamp {
+    position: absolute;
+    top: 8%;
+    right: 8%;
+    border: 3px solid var(--stamp-red);
+    color: var(--stamp-red);
+    padding: 0.6rem 1.4rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.3em;
+    transform: rotate(8deg);
+    opacity: 0.85;
+    z-index: 4;
+  }
+
+  .title-stamp::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border: 1px solid var(--stamp-red);
+    opacity: 0.5;
+  }
+
+  .title-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.5em;
+    color: var(--ink-faded);
+    margin-bottom: 2rem;
+    text-transform: uppercase;
+  }
+
+  .title-main {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: clamp(3rem, 7vw, 6rem);
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin-bottom: 1rem;
+  }
+
+  .title-main em {
+    font-style: italic;
+    color: var(--rust);
+    font-weight: 400;
+  }
+
+  .title-sub {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(1.1rem, 1.8vw, 1.5rem);
+    color: var(--ink-soft);
+    max-width: 600px;
+    line-height: 1.4;
+    margin: 1.5rem auto 3rem;
+  }
+
+  .title-divider {
+    width: 60%;
+    max-width: 400px;
+    height: 1px;
+    background: var(--ink-faded);
+    position: relative;
+    margin: 0 auto 2rem;
+  }
+
+  .title-divider::before, .title-divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    background: var(--rust);
+    transform: translateY(-50%) rotate(45deg);
+  }
+  .title-divider::before { left: -4px; }
+  .title-divider::after { right: -4px; }
+
+  .title-meta {
+    font-family: 'Special Elite', monospace;
+    font-size: 0.85rem;
+    color: var(--ink-faded);
+    letter-spacing: 0.08em;
+    line-height: 1.8;
+  }
+
+  /* ===== DIAGNOSIS SLIDES ===== */
+  .dx-slide .slide-content {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+  }
+
+  .dx-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: start;
+    padding: 1rem 0;
+  }
+
+  .dx-left {
+    padding-right: 2rem;
+    border-right: 1px solid var(--ink-faded);
+  }
+
+  .dx-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.25em;
+    color: var(--rust);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+
+  .dx-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: clamp(2.2rem, 4.5vw, 3.6rem);
+    line-height: 1.0;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    margin-bottom: 1.2rem;
+  }
+
+  .dx-name em {
+    font-style: italic;
+    color: var(--rust);
+  }
+
+  .dx-tag {
+    display: inline-block;
+    font-family: 'Special Elite', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-faded);
+    border: 1px solid var(--ink-faded);
+    padding: 0.3rem 0.7rem;
+    margin-top: 1rem;
+  }
+
+  .dx-description {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(1rem, 1.3vw, 1.2rem);
+    line-height: 1.55;
+    color: var(--ink-soft);
+  }
+
+  .dx-description p { margin-bottom: 1rem; }
+  .dx-description strong { font-weight: 600; color: var(--ink); }
+  .dx-description em { font-style: italic; }
+
+  .dx-section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--rust);
+    margin-bottom: 0.6rem;
+    display: block;
+  }
+
+  /* Terminal panel */
+  .terminal {
+    background: var(--terminal-bg);
+    border: 1px solid #1a2a1a;
+    padding: 1rem 1.2rem;
+    margin-top: 1.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: var(--phosphor);
+    box-shadow:
+      inset 0 0 30px rgba(0, 0, 0, 0.5),
+      0 2px 10px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .terminal::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 2px,
+      rgba(74, 222, 128, 0.03) 2px,
+      rgba(74, 222, 128, 0.03) 3px
+    );
+    pointer-events: none;
+  }
+
+  .terminal-header {
+    color: var(--phosphor-dim);
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+    border-bottom: 1px dashed var(--phosphor-dim);
+    padding-bottom: 0.4rem;
+  }
+
+  .terminal .prompt { color: #fbbf24; }
+  .terminal .comment { color: #6b7280; font-style: italic; }
+  .terminal .output { color: #a7f3d0; }
+  .terminal .err { color: #f87171; }
+
+  /* ===== NAVIGATION ===== */
+  .nav {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    z-index: 100;
+    background: rgba(241, 234, 216, 0.95);
+    backdrop-filter: blur(8px);
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--ink-faded);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  }
+
+  .nav button {
+    background: transparent;
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 0.4rem 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .nav button:hover {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .nav button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .nav .counter {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--ink-soft);
+    letter-spacing: 0.1em;
+    min-width: 70px;
+    text-align: center;
+  }
+
+  /* ===== FINAL SLIDE ===== */
+  .end-slide .slide-content {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .end-prescription {
+    border: 2px solid var(--ink);
+    padding: 3rem 4rem;
+    max-width: 700px;
+    position: relative;
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .end-prescription::before {
+    content: 'Rx';
+    position: absolute;
+    top: -20px;
+    left: 2rem;
+    background: var(--paper);
+    padding: 0 1rem;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 2.5rem;
+    color: var(--rust);
+    font-weight: 600;
+  }
+
+  .end-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--ink-faded);
+    margin-bottom: 1.5rem;
+  }
+
+  .end-script {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.4rem;
+    line-height: 1.5;
+    color: var(--ink);
+    font-style: italic;
+    margin-bottom: 2rem;
+  }
+
+  .end-signature {
+    font-family: 'Special Elite', monospace;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    border-top: 1px solid var(--ink-faded);
+    padding-top: 1rem;
+    margin-top: 2rem;
+  }
+
+  /* ===== KEYBOARD HINT ===== */
+  .kbd-hint {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: rgba(241, 234, 216, 0.5);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    z-index: 100;
+  }
+
+  .kbd-hint kbd {
+    background: rgba(241, 234, 216, 0.15);
+    border: 1px solid rgba(241, 234, 216, 0.3);
+    padding: 0.15rem 0.4rem;
+    margin: 0 0.2rem;
+    font-family: inherit;
+  }
+
+  /* ===== ENTRY ANIMATION ===== */
+  .slide.active .dx-name,
+  .slide.active .title-main,
+  .slide.active .end-script {
+    animation: rise 0.7s ease-out;
+  }
+
+  .slide.active .dx-description,
+  .slide.active .terminal,
+  .slide.active .title-sub {
+    animation: rise 0.7s ease-out 0.15s backwards;
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 900px) {
+    .dx-body {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+    .dx-left {
+      border-right: none;
+      border-bottom: 1px solid var(--ink-faded);
+      padding-right: 0;
+      padding-bottom: 2rem;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="kbd-hint">
+  <kbd>←</kbd> <kbd>→</kbd> navigate &nbsp;·&nbsp; <kbd>F</kbd> fullscreen
+</div>
+
+<div class="deck" id="deck">
+
+  <!-- ============ TITLE SLIDE ============ -->
+  <section class="slide paper title-slide active" data-slide="0">
+    <div class="title-stamp">CLASSIFIED · CLINICAL USE</div>
+    <div class="slide-content">
+      <div class="header-strip">
+        <div class="left">
+          <span>VOL. I</span>
+          <span>EDITION 7.4</span>
+          <span>PRINT RUN 0001</span>
+        </div>
+        <div class="center">— for clinical reference only —</div>
+        <div>FOLIO A</div>
+      </div>
+
+      <div style="margin: auto 0;">
+        <div class="title-eyebrow">Diagnostic &amp; Statistical Manual</div>
+        <h1 class="title-main">Terminal<br><em>Avoidance</em><br>Disorders</h1>
+        <div class="title-divider"></div>
+        <p class="title-sub">A clinical taxonomy of the GUI-afflicted, the click-dependent, and those who file tickets when a one-liner would suffice.</p>
+        <div class="title-meta">
+          DSM&ndash;PWSH &nbsp;·&nbsp; SEVENTH EDITION<br>
+          published under license by the Shell Society
+        </div>
+      </div>
+
+      <div class="footer-strip">
+        <span>§ Introduction</span>
+        <span>Eight Conditions Catalogued</span>
+        <span>Page 01 / 10</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ F41.0 CURSORAPHOBIA ============ -->
+  <section class="slide paper dx-slide" data-slide="1">
+    <div class="slide-content">
+      <div class="header-strip">
+        <div class="left">
+          <span>CHAPTER I</span>
+          <span>ANXIETY SPECTRUM</span>
+        </div>
+        <div class="center">— observation chart 01 —</div>
+        <div>F41.0</div>
+      </div>
+
+      <div class="dx-body">
+        <div class="dx-left">
+          <div class="dx-code">F41.0 · Diagnosis 01</div>
+          <h2 class="dx-name"><em>Cursora&shy;phobia</em></h2>
+          <span class="dx-tag">Phobic · Acute Onset</span>
+
+          <div class="terminal">
+            <div class="terminal-header">CLINICAL TRANSCRIPT — INTAKE</div>
+            <span class="prompt">PS&gt;</span> <span class="output">_</span><span style="animation: blink 1s steps(2) infinite;">▮</span><br>
+            <span class="comment"># patient froze for 47 seconds</span><br>
+            <span class="prompt">PS&gt;</span> <span class="err">[EXIT CODE: 1 — fled to Notepad]</span>
+          </div>
+        </div>
+
+        <div class="dx-right">
+          <span class="dx-section-label">§ Clinical Description</span>
+          <div class="dx-description">
+            <p>Pathological fear of the <strong>blinking cursor</strong>. Patients report a creeping dread when faced with an empty prompt, often described as <em>"the void staring back."</em></p>
+            <p>Acute episodes involve frantic mouse movement toward any visible icon. The patient may verbalize phrases such as <em>"where do I even type"</em> or <em>"is it broken?"</em></p>
+            <p><strong>Comorbidity:</strong> Frequently presents alongside Right-Click Dependency Syndrome and a deep mistrust of monospaced fonts.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-strip">
+        <span>§ F41 Anxiety Disorders</span>
+        <span>Prognosis: Treatable</span>
+        <span>Page 02 / 10</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ F42.1 MOUSOLEUM ============ -->
+  <section class="slide paper dx-slide" data-slide="2">
+    <div class="slide-content">
+      <div class="header-strip">
+        <div class="left">
+          <span>CHAPTER II</span>
+          <span>COMPULSIVE DISORDERS</span>
+        </div>
+        <div class="center">— observation chart 02 —</div>
+        <div>F42.1</div>
+      </div>
+
+      <div class="dx-body">
+        <div class="dx-left">
+          <div class="dx-code">F42.1 · Diagnosis 02</div>
+          <h2 class="dx-name"><em>Mousoleum</em> Syndrome</h2>
+          <span class="dx-tag">Compulsive · Progressive</span>
+
+          <div class="terminal">
+            <div class="terminal-header">OBSERVED BEHAVIOR — TIME-MOTION STUDY</div>
+            <span class="comment"># task: move 12 files</span><br>
+            <span class="prompt">PS&gt;</span> <span class="output">Move-Item *.log ./archive</span><br>
+            <span class="output">  Estimated duration: 0.2s</span><br><br>
+            <span class="comment"># patient's chosen method:</span><br>
+            <span class="output">  Drag &amp; drop x 12</span><br>
+            <span class="err">  Actual duration: 4m 18s</span>
+          </div>
+        </div>
+
+        <div class="dx-right">
+          <span class="dx-section-label">§ Clinical Description</span>
+          <div class="dx-description">
+            <p>The compulsive <strong>entombment of all productivity</strong> within mouse-driven workflows. Sufferers will click through seventeen nested menus rather than type four characters.</p>
+            <p>In severe cases, patients have been observed dragging files across three monitors when <em>Move-Item</em> would have sufficed.</p>
+            <p><strong>Diagnostic indicator:</strong> Persistent hand cramping. Carpal tunnel as a badge of honor. The mouse pad is worn through.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-strip">
+        <span>§ F42 OCD Spectrum</span>
+        <span>Prognosis: Guarded</span>
+        <span>Page 03 / 10</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ F60.3 HISTRIONIC GUI ============ -->
+  <section class="slide paper dx-slide" data-slide="3">
+    <div class="slide-content">
+      <div class="header-strip">
+        <div class="left">
+          <span>CHAPTER III</span>
+          <span>PERSONALITY DISORDERS</span>
+        </div>
+        <div class="center">— observation chart 03 —</div>
+        <div>F60.3</div>
+      </div>
+
+      <div class="dx-body">
+        <div class="dx-left">
+          <div class="dx-code">F60.3 · Diagnosis 03</div>
+          <h2 class="dx-name">Histrionic <em>GUI</em> Disorder</h2>
+          <span class="dx-tag">Dramatic · Suggestible</span>
+
+          <div class="terminal">
+            <div class="terminal-header">VERBATIM PATIENT QUOTES</div>
+            <span class="output">"This looks like hacking."</span><br>
+            <span class="output">"I don't want to break anything."</span><br>
+            <span class="output">"Is this the dark web?"</span><br>
+            <span class="output">"My screen is just text."</span><br>
+            <span class="comment"># reaction time to a black background:</span><br>
+            <span class="err">  — gasp recorded at 0.4s</span>
+          </div>
+        </div>
+
+        <div class="dx-right">
+          <span class="dx-section-label">§ Clinical Description</span>
+          <div class="dx-description">
+            <p>Characterized by <strong>dramatic emotional responses</strong> to black backgrounds with white text. Patients exclaim phrases such as <em>"this looks like hacking"</em> or <em>"I don't want to break anything."</em></p>
+            <p>Often presents alongside an irrational trust in any interface containing <strong>rounded corners and pastel gradients</strong>.</p>
+            <p><strong>Tell:</strong> Will pay $40/month for a SaaS wrapper around a 12-line shell script.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-strip">
+        <span>§ F60 Personality</span>
+        <span>Prognosis: Variable</span>
+        <span>Page 04 / 10</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ F33.0 NOTEPAD DEPRESSION ============ -->
+  <section class="slide paper dx-slide" data-slide="4">
+    <div class="slide-content">
+      <div class="header-strip">
+        <div class="left">
+          <span>CHAPTER IV</span>
+          <span>MOOD DISORDERS</span>
+        </div>
+        <div class="center">— observation chart 04 —</div>
+        <div>F33.0</div>
+      </div>
+
+      <div class="dx-body">
+        <div class="dx-left">
+          <div class="dx-code">F33.0 · Diagnosis 04</div>
+          <h2 class="dx-name">Recurring <em>Notepad</em><br>Depression</h2>
+          <span class="dx-tag">Melancholic · Recurrent</span>
+
+          <div class="terminal">
+            <div class="terminal-header">SYSTEM RESOURCE LOG</div>
+            <span class="prompt">PS&gt;</span> <span class="output">notepad.exe access.log</span><br>
+            <span class="err">  WARNING: file size 847 MB</span><br>
+            <span class="err">  Notepad has stopped responding...</span><br>
+            <span class="comment"># suggested intervention:</span><br>
+            <span class="prompt">PS&gt;</span> <span class="output">Select-String "ERROR" access.log</span><br>
+            <span class="output">  → returned in 0.3s</span>
+          </div>
+        </div>
+
+        <div class="dx-right">
+          <span class="dx-section-label">§ Clinical Description</span>
+          <div class="dx-description">
+            <p>A melancholic condition wherein the patient <strong>repeatedly opens Notepad</strong> to "quickly check something" instead of using <em>Get-Content</em>, <em>Select-String</em>, or literally any tool built for the task.</p>
+            <p>Episodes worsen near log files exceeding 50 MB. The patient may stare at a frozen Notepad window for upwards of nine minutes before contemplating alternatives.</p>
+            <p><strong>Hallmark:</strong> A flat affect that deepens with every blue spinning circle.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-strip">
+        <span>§ F33 Recurrent Depression</span>
+        <span>Prognosis: Cyclical</span>
+        <span>Page 05 / 10</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ F84.5 PIPELINE APRAXIA ============ -->
+  <section class="slide paper dx-slide" data-slide="5">
+    <div class="slide-content">
+      <div class="header-strip">
+        <div class="left">
+          <span>CHAPTER V</span>
+          <span>NEURODEVELOPMENTAL</span>
+        </div>
+        <div class="center">— observation chart 05 —</div>
+        <div>F84.5</div>
+      </div>
+
+      <div class="dx-body">
+        <div class="dx-left">
+          <div class="dx-code">F84.5 · Diagnosis 05</div>
+          <h2 class="dx-name">PowerShell <em>Pipeline</em> Apraxia</h2>
+          <span class="dx-tag">Cognitive · Treatable</span>
+
+          <div class="terminal">
+            <div class="terminal-header">DIAGNOSTIC EXERCISE</div>
+            <span class="comment"># the test pipeline:</span><br>
+            <span class="prompt">PS&gt;</span> <span class="output">Get-Process |</span><br>
+            <span class="output">     Where-Object CPU -gt 50 |</span><br>
+            <span class="output">     Stop-Process</span><br><br>
+            <span class="comment"># patient response:</span><br>
+            <span class="err">  "What does the squiggly mean?"</span>
+          </div>
+        </div>
+
+        <div class="dx-right">
+          <span class="dx-section-label">§ Clinical Description</span>
+          <div class="dx-description">
+            <p>Neurological inability to comprehend that <strong>the output of one command can become the input of another</strong>. Patients copy-paste between windows manually, sometimes for hours.</p>
+            <p>The pipe symbol <em>(<code>|</code>)</em> registers as decorative rather than functional. Some patients have been observed retyping output into a fresh command line.</p>
+            <p><strong>Treatment:</strong> Supervised exposure to <em>Get-Process | Where-Object CPU -gt 50 | Stop-Process</em>. Recovery is dramatic when it arrives.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-strip">
+        <span>§ F84 Developmental</span>
+        <span>Prognosis: Excellent w/ tx</span>
+        <span>Page 06 / 10</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ F43.2 BASH BIAS ============ -->
+  <section class="slide paper dx-slide" data-slide="6">
+    <div class="slide-content">
+      <div class="header-strip">
+        <div class="left">
+          <span>CHAPTER VI</span>
+          <span>ADJUSTMENT DISORDERS</span>
+        </div>
+        <div class="center">— observation chart 06 —</div>
+        <div>F43.2</div>
+      </div>
+
+      <div class="dx-body">
+        <div class="dx-left">
+          <div class="dx-code">F43.2 · Diagnosis 06</div>
+          <h2 class="dx-name">Adjustment Disorder<br>with <em>Bash Bias</em></h2>
+          <span class="dx-tag">Acquired · Often Academic</span>
+
+          <div class="terminal">
+            <div class="terminal-header">TRIGGER RESPONSE LOG</div>
+            <span class="prompt">PS&gt;</span> <span class="output">ls</span><br>
+            <span class="output">  Mode  LastWriteTime  Name</span><br>
+            <span class="output">  ----  -------------  ----</span><br>
+            <span class="comment"># patient observed reaction:</span><br>
+            <span class="err">  *audible sigh*</span><br>
+            <span class="err">  "That's not real ls."</span>
+          </div>
+        </div>
+
+        <div class="dx-right">
+          <span class="dx-section-label">§ Clinical Description</span>
+          <div class="dx-description">
+            <p>Acquired in <strong>undergraduate Linux courses</strong>. Patient becomes physically uncomfortable when <em>ls</em> doesn't behave exactly as expected — despite <em>ls</em> being a perfectly functional alias in pwsh.</p>
+            <p>Symptoms frequently accompanied by <strong>performative sighing</strong>, unsolicited mentions of grep, and the phrase <em>"in a real shell..."</em></p>
+            <p><strong>Note:</strong> Often refuses to acknowledge that pwsh runs natively on Linux and macOS. Cognitive dissonance is severe.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-strip">
+        <span>§ F43 Stress / Adjustment</span>
+        <span>Prognosis: Self-resolving</span>
+        <span>Page 07 / 10</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ F90.1 VERB-NOUN ADD ============ -->
+  <section class="slide paper dx-slide" data-slide="7">
+    <div class="slide-content">
+      <div class="header-strip">
+        <div class="left">
+          <span>CHAPTER VII</span>
+          <span>ATTENTION DISORDERS</span>
+        </div>
+        <div class="center">— observation chart 07 —</div>
+        <div>F90.1</div>
+      </div>
+
+      <div class="dx-body">
+        <div class="dx-left">
+          <div class="dx-code">F90.1 · Diagnosis 07</div>
+          <h2 class="dx-name">Verb-Noun<br><em>Attention Deficit</em></h2>
+          <span class="dx-tag">Cognitive · Retention Issue</span>
+
+          <div class="terminal">
+            <div class="terminal-header">SEARCH HISTORY — 30 DAYS</div>
+            <span class="output">how to list files powershell      x 14</span><br>
+            <span class="output">powershell list directory contents x 9</span><br>
+            <span class="output">pwsh ls equivalent                 x 12</span><br>
+            <span class="comment"># the answer, every time:</span><br>
+            <span class="prompt">PS&gt;</span> <span class="output">Get-ChildItem</span>
+          </div>
+        </div>
+
+        <div class="dx-right">
+          <span class="dx-section-label">§ Clinical Description</span>
+          <div class="dx-description">
+            <p>Inability to retain that PowerShell cmdlets follow a <strong>predictable Verb-Noun structure</strong>. Patient repeatedly Googles <em>"how to list files powershell"</em> despite having used <em>Get-ChildItem</em> 400 times.</p>
+            <p>Verbs are forgotten. Nouns are forgotten. The hyphen, somehow, also forgotten.</p>
+            <p><strong>Prognosis:</strong> Improves significantly with <strong>tab completion therapy</strong>. Aliases (<em>gci</em>, <em>dir</em>, <em>ls</em>) provide symptomatic relief.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-strip">
+        <span>§ F90 ADHD Spectrum</span>
+        <span>Prognosis: Manageable</span>
+        <span>Page 08 / 10</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ F45.8 SSH AVERSION ============ -->
+  <section class="slide paper dx-slide" data-slide="8">
+    <div class="slide-content">
+      <div class="header-strip">
+        <div class="left">
+          <span>CHAPTER VIII</span>
+          <span>SOMATOFORM DISORDERS</span>
+        </div>
+        <div class="center">— observation chart 08 —</div>
+        <div>F45.8</div>
+      </div>
+
+      <div class="dx-body">
+        <div class="dx-left">
+          <div class="dx-code">F45.8 · Diagnosis 08</div>
+          <h2 class="dx-name">Somatic <em>SSH</em><br>Aversion</h2>
+          <span class="dx-tag">Severe · Often Fatal (to Deadlines)</span>
+
+          <div class="terminal">
+            <div class="terminal-header">PATIENT AVOIDANCE PATTERN</div>
+            <span class="comment"># suggested action:</span><br>
+            <span class="output">  "Just SSH into the box."</span><br><br>
+            <span class="comment"># patient instead:</span><br>
+            <span class="output">  1. Files JIRA ticket</span><br>
+            <span class="output">  2. Schedules 30m meeting</span><br>
+            <span class="output">  3. Requests screenshare</span><br>
+            <span class="err">  ETA: 3 business days</span>
+          </div>
+        </div>
+
+        <div class="dx-right">
+          <span class="dx-section-label">§ Clinical Description</span>
+          <div class="dx-description">
+            <p>Physical symptoms — <strong>sweating, shallow breathing, mild nausea</strong> — triggered by the phrase <em>"just SSH into the box."</em></p>
+            <p>Patients prefer to file a ticket, schedule a meeting, and request a Teams screenshare instead. The detour can add 72 hours to a 30-second task.</p>
+            <p><strong>Severity:</strong> Frequently fatal to deadlines. Has been known to single-handedly extend project timelines by entire quarters.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-strip">
+        <span>§ F45 Somatoform</span>
+        <span>Prognosis: Reserved</span>
+        <span>Page 09 / 10</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TREATMENT / END ============ -->
+  <section class="slide paper end-slide" data-slide="9">
+    <div class="slide-content">
+      <div class="header-strip">
+        <div class="left">
+          <span>APPENDIX A</span>
+          <span>TREATMENT PROTOCOL</span>
+        </div>
+        <div class="center">— prescription pad —</div>
+        <div>§ Rx</div>
+      </div>
+
+      <div style="margin: auto 0; display: flex; justify-content: center;">
+        <div class="end-prescription">
+          <div class="end-label">Standing Order · Universal Protocol</div>
+          <p class="end-script">
+            Daily exposure to <strong>pwsh</strong>, one pipeline at a time.<br><br>
+            Recovery <em>is</em> possible.<br>
+            Relapse is common when Excel is in the room.
+          </p>
+          <div class="end-signature">
+            — Dr. C. Huffman, M.D. (Made-up Diagnostician)<br>
+            The Shell Society · Mount Juliet Branch
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-strip">
+        <span>§ End of Manual</span>
+        <span>— fin —</span>
+        <span>Page 10 / 10</span>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ============ NAVIGATION ============ -->
+<nav class="nav">
+  <button id="prev" aria-label="Previous slide">◂ Prev</button>
+  <span class="counter" id="counter">01 / 10</span>
+  <button id="next" aria-label="Next slide">Next ▸</button>
+</nav>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let current = 0;
+
+  const prevBtn = document.getElementById('prev');
+  const nextBtn = document.getElementById('next');
+  const counter = document.getElementById('counter');
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function show(i) {
+    if (i < 0 || i >= total) return;
+    slides[current].classList.remove('active');
+    current = i;
+    slides[current].classList.add('active');
+    counter.textContent = pad(current + 1) + ' / ' + pad(total);
+    prevBtn.disabled = current === 0;
+    nextBtn.disabled = current === total - 1;
+  }
+
+  prevBtn.addEventListener('click', () => show(current - 1));
+  nextBtn.addEventListener('click', () => show(current + 1));
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+      e.preventDefault();
+      show(current + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+      e.preventDefault();
+      show(current - 1);
+    } else if (e.key === 'Home') {
+      show(0);
+    } else if (e.key === 'End') {
+      show(total - 1);
+    } else if (e.key === 'f' || e.key === 'F') {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+  });
+
+  // Initialize
+  show(0);
+</script>
+
+<style>
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+</style>
+
+</body>
+</html>
